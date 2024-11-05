@@ -1,26 +1,46 @@
 import React, { useEffect, useRef } from 'react';
 import styled from 'styled-components';
-const VideoCard = (props) => {
+
+const VideoCard = ({ peer }) => {
   const ref = useRef();
-  const peer = props.peer;
 
   useEffect(() => {
-    peer.on('stream', (stream) => {
-      ref.current.srcObject = stream;
-    });
-    peer.on('track', (track, stream) => {
-    });
+    if (!peer) return;
+
+    const handleStream = (event) => {
+      if (event.detail.peerId === peer.peerID && ref.current) {
+        ref.current.srcObject = event.detail.stream;
+      }
+    };
+
+    window.addEventListener('peerStream', handleStream);
+
+    if (peer.remoteStream && ref.current) {
+      ref.current.srcObject = peer.remoteStream;
+    }
+
+    return () => {
+      window.removeEventListener('peerStream', handleStream);
+      if (ref.current) {
+        ref.current.srcObject = null;
+      }
+    };
   }, [peer]);
 
   return (
     <Video
-      playsInline
-      autoPlay
       ref={ref}
+      autoPlay
+      playsInline
+      muted={false}
     />
   );
 };
 
-const Video = styled.video``;
+const Video = styled.video`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+`;
 
 export default VideoCard;
