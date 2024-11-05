@@ -1,28 +1,36 @@
 import React, { useRef, useState, useEffect } from 'react';
 import styled from 'styled-components';
 import socket from '../../socket';
+import { useNavigate } from 'react-router-dom'; // Add this import
 
-const Main = (props) => {
+const Main = () => {  // Remove props parameter
+  const navigate = useNavigate(); // Add this hook
   const roomRef = useRef();
   const userRef = useRef();
   const [err, setErr] = useState(false);
   const [errMsg, setErrMsg] = useState('');
 
+ 
   useEffect(() => {
-
-    socket.on('FE-error-user-exist', ({ error }) => {
+    const handleUserExist = ({ error }) => {
       if (!error) {
         const roomName = roomRef.current.value;
         const userName = userRef.current.value;
 
         sessionStorage.setItem('user', userName);
-        props.history.push(`/room/${roomName}`);
+        // Add console.log to debug
+        console.log('Navigating to:', `/room/${roomName}`);
+        navigate(`/room/${roomName}`);
       } else {
-        setErr(error);
-        setErrMsg('User name already exist');
+        setErr(true);
+        setErrMsg('User name already exists');
       }
-    });
-  }, [props.history]);
+    };
+
+    socket.on('FE-error-user-exist', handleUserExist);
+    return () => socket.off('FE-error-user-exist', handleUserExist);
+  }, [navigate]);
+
 
   function clickJoin() {
     const roomName = roomRef.current.value;
@@ -32,9 +40,22 @@ const Main = (props) => {
       setErr(true);
       setErrMsg('Enter Room Name or User Name');
     } else {
+      sessionStorage.setItem('user', userName);
       socket.emit('BE-check-user', { roomId: roomName, userName });
+      // Navigate immediately after emitting the socket event
+      navigate(`/room/${roomName}`);
+      
+      // Optional: Add error handling if user exists
+      socket.once('FE-error-user-exist', ({ error }) => {
+        if (error) {
+          setErr(true);
+          setErrMsg('User name already exists');
+          navigate('/'); // Navigate back to main if there's an error
+        }
+      });
     }
   }
+
 
   return (
     <MainContainer>
@@ -51,7 +72,6 @@ const Main = (props) => {
     </MainContainer>
   );
 };
-
 const MainContainer = styled.div`
   display: flex;
   flex-direction: column;

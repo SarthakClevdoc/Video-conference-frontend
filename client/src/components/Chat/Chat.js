@@ -4,63 +4,76 @@ import socket from '../../socket';
 
 const Chat = ({ display, roomId }) => {
   const currentUser = sessionStorage.getItem('user');
-  const [msg, setMsg] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef(null);
-  const inputRef = useRef();
   
   useEffect(() => {
-    socket.on('FE-receive-message', ({ msg, sender }) => {
-      setMsg((msgs) => [...msgs, { sender, msg }]);
-    });
+    const handleReceiveMessage = ({ msg, sender }) => {
+      setMessages((prevMessages) => [...prevMessages, { sender, msg }]);
+    };
+
+    socket.on('FE-receive-message', handleReceiveMessage);
+
+    // Cleanup socket listener
+    return () => socket.off('FE-receive-message', handleReceiveMessage);
   }, []);
 
-  // Scroll to Bottom of Message List
-  useEffect(() => {scrollToBottom()}, [msg])
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const scrollToBottom = () => {
-    messagesEndRef.current.scrollIntoView({ behavior: 'smooth'});
-  }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
-  const sendMessage = (e) => {
+  const handleSendMessage = (e) => {
     if (e.key === 'Enter') {
-      const msg = e.target.value;
+      sendMessage();
+    }
+  };
 
-      if (msg) {
-        socket.emit('BE-send-message', { roomId, msg, sender: currentUser });
-        inputRef.current.value = '';
-      }
+  const sendMessage = () => {
+    const message = inputMessage.trim();
+    
+    if (message) {
+      setMessages(prev => [...prev, { sender: currentUser, msg: message }]);
+      
+      socket.emit('BE-send-message', { 
+        roomId, 
+        msg: message, 
+        sender: currentUser 
+      });
+      
+      setInputMessage('');
     }
   };
 
   return (
-    <ChatContainer className={display ? '' : 'width0'}>
+    <ChatContainer $display={display}>
       <TopHeader>Group Chat Room</TopHeader>
       <ChatArea>
-        <MessageList>
-          {msg &&
-            msg.map(({ sender, msg }, idx) => {
-              if (sender !== currentUser) {
-                return (
-                  <Message key={idx}>
-                    <strong>{sender}</strong>
-                    <p>{msg}</p>
-                  </Message>
-                );
-              } else {
-                return (
-                  <UserMessage key={idx}>
-                    <strong>{sender}</strong>
-                    <p>{msg}</p>
-                  </UserMessage>
-                );
-              }
-            })}
-            <div style={{float:'left', clear: 'both'}} ref={messagesEndRef} />
-        </MessageList>
+      <MessageList>
+        {messages?.map(({ sender, msg }, idx) => (
+          sender !== currentUser ? (
+            <Message key={idx}>
+              <strong>{sender}</strong>
+              <p>{msg}</p>
+            </Message>
+          ) : (
+            <UserMessage key={idx}>
+              <strong>{sender}</strong>
+              <p>{msg}</p>
+            </UserMessage>
+          )
+        ))}
+        <div ref={messagesEndRef} style={{ float: 'left', clear: 'both' }} />
+      </MessageList>
       </ChatArea>
       <BottomInput
-        ref={inputRef}
-        onKeyUp={sendMessage}
+        value={inputMessage}
+        onChange={(e) => setInputMessage(e.target.value)}
+        onKeyUp={handleSendMessage}
         placeholder="Enter your message"
       />
     </ChatContainer>
@@ -75,6 +88,7 @@ const ChatContainer = styled.div`
   background-color: white;
   transition: all 0.5s ease;
   overflow: hidden;
+   ${props => !props.$display && 'width: 0;'} 
 `;
 
 const TopHeader = styled.div`

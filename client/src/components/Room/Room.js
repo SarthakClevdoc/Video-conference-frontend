@@ -5,9 +5,13 @@ import socket from "../../socket";
 import VideoCard from "../Video/VideoCard";
 import BottomBar from "../BottomBar/BottomBar";
 import Chat from "../Chat/Chat";
-  
-const Room = (props) => {
+import { useParams, useNavigate } from 'react-router-dom';
+
+const Room = () => {
+  const navigate = useNavigate();
+  const { roomId } = useParams();
   const currentUser = sessionStorage.getItem("user");
+  
   const [peers, setPeers] = useState([]);
   const [userVideoAudio, setUserVideoAudio] = useState({
     localUser: { video: true, audio: true },
@@ -16,21 +20,27 @@ const Room = (props) => {
   const [displayChat, setDisplayChat] = useState(false);
   const [screenShare, setScreenShare] = useState(false);
   const [showVideoDevices, setShowVideoDevices] = useState(false);
+  
   const peersRef = useRef([]);
   const userVideoRef = useRef();
   const screenTrackRef = useRef();
   const userStream = useRef();
-  const roomId = props.match.params.roomId;
 
   useEffect(() => {
+    // Check if user exists in session
+    if (!currentUser) {
+      navigate('/');
+      return;
+    }
+
+    // Set Back Button Event
+    window.addEventListener("popstate", goToBack);
+
     // Get Video Devices
     navigator.mediaDevices.enumerateDevices().then((devices) => {
       const filtered = devices.filter((device) => device.kind === "videoinput");
       setVideoDevices(filtered);
     });
-
-    // Set Back Button Event
-    window.addEventListener("popstate", goToBack);
 
     // Connect Camera & Mic
     navigator.mediaDevices
@@ -66,7 +76,7 @@ const Room = (props) => {
                 };
               });
             }
-          }); 
+          });
 
           setPeers(peers);
         });
@@ -134,9 +144,15 @@ const Room = (props) => {
 
     return () => {
       socket.disconnect();
+      if (userStream.current) {
+        userStream.current.getTracks().forEach(track => track.stop());
+      }
+      if (screenTrackRef.current) {
+        screenTrackRef.current.stop();
+      }
+      window.removeEventListener("popstate", goToBack);
     };
-    // eslint-disable-next-line
-  }, []);
+  }, [currentUser, navigate, roomId]);
 
   function createPeer(userId, caller, stream) {
     const peer = new Peer({
@@ -216,7 +232,7 @@ const Room = (props) => {
     e.preventDefault();
     socket.emit("BE-leave-room", { roomId, leaver: currentUser });
     sessionStorage.removeItem("user");
-    window.location.href = "/";
+    navigate('/');
   };
 
   const toggleCameraAudio = (e) => {
@@ -352,7 +368,7 @@ const Room = (props) => {
         });
     }
   };
-
+  
   return (
     <RoomContainer onClick={clickBackground}>
       <VideoAndBarContainer>
@@ -370,7 +386,7 @@ const Room = (props) => {
               ref={userVideoRef}
               muted
               autoPlay
-              playInline
+              playsInline    // Changed from playInline to playsInline
             ></MyVideo>
           </VideoBox>
           {/* Joined User Vidoe */}

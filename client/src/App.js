@@ -1,19 +1,19 @@
 import React from 'react';
-import { BrowserRouter, Route, Switch } from 'react-router-dom';
+import { BrowserRouter, Routes, Route} from 'react-router-dom';
 import Main from './components/Main/Main';
-import Room from './components/Room/Room'
+import Room from './components/Room/Room';
 import styled from 'styled-components';
 
 function App() {
   return (
+    <AppContainer>
     <BrowserRouter>
-      <AppContainer>
-        <Switch>
-          <Route exact path="/" component={Main} />
-          <Route exact path="/room/:roomId" component={Room} />
-        </Switch>
+      <Routes>
+        <Route path="/" element={<Main />} />
+        <Route path="/room/:roomId" element={<Room />} />
+      </Routes>
+      </BrowserRouter>
       </AppContainer>
-    </BrowserRouter>
   );
 }
 
