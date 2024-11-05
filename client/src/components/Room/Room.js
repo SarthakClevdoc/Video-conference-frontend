@@ -26,6 +26,15 @@ const Room = () => {
   const screenTrackRef = useRef();
   const userStream = useRef();
 
+  const checkMediaDevices = () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert('Your browser does not support video meetings. Please use a modern browser.');
+      navigate('/');
+      return false;
+    }
+    return true;
+  };
+
   useEffect(() => {
     // Check if user exists in session
     if (!currentUser) {
@@ -33,18 +42,24 @@ const Room = () => {
       return;
     }
 
+    // Check for mediaDevices support
+    if (!checkMediaDevices()) return;
+
     // Set Back Button Event
     window.addEventListener("popstate", goToBack);
 
-    // Get Video Devices
-    navigator.mediaDevices.enumerateDevices().then((devices) => {
-      const filtered = devices.filter((device) => device.kind === "videoinput");
-      setVideoDevices(filtered);
-    });
+    // Get Video Devices with error handling
+    navigator.mediaDevices.enumerateDevices()
+      .then((devices) => {
+        const filtered = devices.filter((device) => device.kind === "videoinput");
+        setVideoDevices(filtered);
+      })
+      .catch((err) => {
+        console.error('Error accessing media devices:', err);
+      });
 
-    // Connect Camera & Mic
-    navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
+    // Connect Camera & Mic with error handling
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       .then((stream) => {
         userVideoRef.current.srcObject = stream;
         userStream.current = stream;
@@ -109,37 +124,47 @@ const Room = () => {
 
         socket.on("FE-call-accepted", ({ signal, answerId }) => {
           const peerIdx = findPeer(answerId);
-          peerIdx.peer.signal(signal);
+          if (peerIdx) {
+            peerIdx.peer.signal(signal);
+          }
         });
 
         socket.on("FE-user-leave", ({ userId, userName }) => {
           const peerIdx = findPeer(userId);
-          peerIdx.peer.destroy();
-          setPeers((users) => {
-            users = users.filter((user) => user.peerID !== peerIdx.peer.peerID);
-            return [...users];
-          });
+          if (peerIdx) {
+            peerIdx.peer.destroy();
+            setPeers((users) => {
+              users = users.filter((user) => user.peerID !== peerIdx.peer.peerID);
+              return [...users];
+            });
+          }
           peersRef.current = peersRef.current.filter(
             ({ peerID }) => peerID !== userId
           );
         });
+      })
+      .catch((err) => {
+        console.error('Error accessing camera/microphone:', err);
+        alert('Unable to access camera or microphone. Please check permissions.');
+        navigate('/');
       });
 
     socket.on("FE-toggle-camera", ({ userId, switchTarget }) => {
       const peerIdx = findPeer(userId);
+      if (peerIdx) {
+        setUserVideoAudio((preList) => {
+          let video = preList[peerIdx.userName].video;
+          let audio = preList[peerIdx.userName].audio;
 
-      setUserVideoAudio((preList) => {
-        let video = preList[peerIdx.userName].video;
-        let audio = preList[peerIdx.userName].audio;
+          if (switchTarget === "video") video = !video;
+          else audio = !audio;
 
-        if (switchTarget === "video") video = !video;
-        else audio = !audio;
-
-        return {
-          ...preList,
-          [peerIdx.userName]: { video, audio },
-        };
-      });
+          return {
+            ...preList,
+            [peerIdx.userName]: { video, audio },
+          };
+        });
+      }
     });
 
     return () => {
@@ -153,6 +178,7 @@ const Room = () => {
       window.removeEventListener("popstate", goToBack);
     };
   }, [currentUser, navigate, roomId]);
+
 
   function createPeer(userId, caller, stream) {
     const peer = new Peer({
@@ -268,8 +294,14 @@ const Room = () => {
     socket.emit("BE-toggle-camera-audio", { roomId, switchTarget: target });
   };
 
+ 
   const clickScreenSharing = () => {
     if (!screenShare) {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+        alert('Screen sharing is not supported in your browser');
+        return;
+      }
+
       navigator.mediaDevices
         .getDisplayMedia({ cursor: true })
         .then((stream) => {
@@ -304,6 +336,10 @@ const Room = () => {
           userVideoRef.current.srcObject = stream;
           screenTrackRef.current = screenTrack;
           setScreenShare(true);
+        })
+        .catch((err) => {
+          console.error('Error sharing screen:', err);
+          alert('Unable to share screen. Please check permissions.');
         });
     } else {
       screenTrackRef.current.onended();
