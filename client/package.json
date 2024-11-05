@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "17": "^0.0.0",
     "@testing-library/jest-dom": "^4.2.4",
     "@testing-library/react": "^9.3.2",
     "@testing-library/user-event": "^7.1.2",
@@ -35,5 +36,9 @@
       "last 1 safari version"
     ]
   },
-  "proxy": "http://15.206.171.112:3001/"
+  "proxy": "http://15.206.171.112:3001/",
+  "engines": {
+    "node": ">=12.0.0 <17.0.0",
+    "npm": ">=6.0.0 <8.0.0"
+  }
 }
