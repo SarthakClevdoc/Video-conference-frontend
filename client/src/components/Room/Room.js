@@ -47,6 +47,18 @@ const Room = () => {
 
     // Set Back Button Event
     window.addEventListener("popstate", goToBack);
+    const getVideoDevices = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const filtered = devices.filter((device) => device.kind === "videoinput");
+        setVideoDevices(filtered);
+      } catch (err) {
+        console.error('Error accessing media devices:', err);
+        setVideoDevices([]);
+      }
+    };
+    
+    getVideoDevices();
 
     // Get Video Devices with error handling
     navigator.mediaDevices.enumerateDevices()
